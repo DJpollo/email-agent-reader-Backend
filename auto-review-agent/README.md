@@ -6,7 +6,7 @@ Email arrives in Supabase
         ↓
 n8n runs every hour
         ↓
-Ollama (local AI) reads the email
+Gemini (hosted AI) reads the email
   → scores risk 0–100
   → extracts category, urgency, summary
   → recommends: auto_approve / review / escalate
@@ -32,7 +32,7 @@ n8n writes to Supabase:
 |---|---|---|
 | Database | [Supabase](https://supabase.com) | Free tier |
 | Automation | [n8n](https://n8n.io) | Self-hosted, free |
-| AI Model | [Ollama](https://ollama.com) + llama3.2 | Free, runs locally |
+| AI Model | [Gemini API](https://ai.google.dev/) + gemini-2.5-flash | Free tier available |
 
 ---
 
@@ -40,7 +40,7 @@ n8n writes to Supabase:
 
 - [Node.js](https://nodejs.org) v18+
 - [n8n](https://n8n.io) installed globally
-- [Ollama](https://ollama.com) installed
+- A Gemini API key from Google AI Studio
 - A [Supabase](https://supabase.com) account (free)
 
 ---
@@ -71,15 +71,11 @@ supabase/migrations/006_create_dashboard_stats_view.sql
 
 3. Copy your **Project URL** and **anon key** from Project Settings → API
 
-### 3. Set up Ollama
+### 3. Set up Gemini
 
 ```bash
-# Install Ollama from https://ollama.com then pull the model:
-ollama pull llama3.2
-
-# Ollama will now run automatically at http://127.0.0.1:11434
-# If it's not running, start it with:
-ollama serve
+# Create an API key in Google AI Studio:
+# https://aistudio.google.com/app/apikey
 ```
 
 ### 4. Set up n8n
@@ -128,9 +124,9 @@ The workflow has 9 nodes:
 ```
 Schedule Trigger (every hour)
   → Fetch Unread Emails       (Supabase REST)
-  → Build Ollama Payload      (Code — safely serializes email body)
-  → Analyze with Ollama       (HTTP POST to 127.0.0.1:11434)
-  → Parse Ollama Response     (Code — extracts + validates AI fields)
+  → Build Gemini Payload      (Code — safely serializes email body)
+  → Analyze with Gemini       (HTTP POST to Gemini API)
+  → Parse Gemini Response     (Code — extracts + validates AI fields)
   ├── Save Request            (Supabase — requests table)
   ├── Save Email Summary      (Supabase — email_summaries table)
   → Build Activity Log        (Code)
@@ -155,5 +151,4 @@ VALUES (
 ```
 
 Then run the n8n workflow manually.
-
 
