@@ -1,3 +1,13 @@
+## Auto-Review Agent
+
+This repository now contains both parts of the project:
+
+- `web/`: the Vercel-deployable frontend
+- `supabase/`: database schema and migrations
+- `n8n/`: workflow automation files
+- `docs/`: setup notes for credentials and workflow configuration
+
+If you want to deploy the app from this GitHub repository in Vercel, import this repo and set the Vercel Root Directory to `web`.
 
 ## How It Works
 
@@ -102,6 +112,7 @@ Then import the workflow:
 ```
 auto-review-agent/
 ├── README.md
+├── web/                                  # Vercel frontend (Vite + React)
 ├── n8n/
 │   └── auto_review_agent_final.json   # Import this into n8n
 ├── supabase/
@@ -151,4 +162,3 @@ VALUES (
 ```
 
 Then run the n8n workflow manually.
-
