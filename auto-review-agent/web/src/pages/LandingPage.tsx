@@ -114,16 +114,16 @@ export default function LandingPage() {
 
   const fitPoints = [
     {
-      title: 'Inbox-first by design',
-      body: 'The product fits teams that already receive approval work by email and need more structure without changing how requests arrive.',
+      title: 'Fits the way teams already work',
+      body: 'Teams can keep using email as the intake channel while the platform adds structure, prioritization, and visibility behind the scenes.',
     },
     {
-      title: 'Smarter review from the first glance',
+      title: 'Less manual sorting, better decisions',
       body: 'Summaries, urgency, and recommendation signals give reviewers the context they need before opening a long thread.',
     },
     {
-      title: 'Built for operational clarity',
-      body: 'The interface helps busy teams move through request queues with less manual sorting and more confidence in each decision.',
+      title: 'Audit-ready from intake to resolution',
+      body: 'Request status, reviewer actions, and escalation history stay connected so teams can move quickly without losing accountability.',
     },
   ];
 
@@ -286,12 +286,6 @@ export default function LandingPage() {
                     </div>
                   </div>
                 </div>
-                <div className="candy-glass-soft absolute -bottom-6 -left-4 hidden w-60 rounded-[28px] p-4 md:block">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#8d69b3]">AI output</p>
-                  <p className="mt-3 text-sm leading-6 text-[#665975]">
-                    Summary, urgency, recommendation, and audit context stay visible without crowding the reviewer.
-                  </p>
-                </div>
               </motion.div>
             </div>
           </section>
@@ -301,8 +295,8 @@ export default function LandingPage() {
               <div className={`mx-auto max-w-7xl transition-all duration-700 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
                 <SectionHeading
                   eyebrow="Flow"
-                  title="The page now has a stronger sequence, not just prettier boxes"
-                  subtitle="Each section has one job: explain the workflow, show the product shape, then close with a cleaner call to action."
+                  title="From incoming email to confident approval in three steps"
+                  subtitle="The platform captures requests, adds AI context, and routes work to the right reviewer before time is lost in inbox triage."
                 />
                 <div className="mt-12 grid gap-5 lg:grid-cols-3">
                   {workflowSteps.map((step) => (
