@@ -1,0 +1,2047 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "let data = {};\ntry {\n  data = $('Parse Groq Response').item.json;\n} catch(e) {\n  try {\n    data = $('Parse Groq Response (AI Only)').item.json;\n  } catch(e2) {\n    data = $input.item.json;\n  }\n}\n\nlet summary = data.activity_notes || 'Your request has been received and is under review.';\ntry {\n  const sp = typeof data.summary_payload === 'string' \n    ? JSON.parse(data.summary_payload) \n    : data.summary_payload;\n  if (sp && sp.summary) summary = sp.summary;\n} catch(e) {}\n\nconst recommendation = data.recommendation || 'review';\nconst sender = data.sender || 'Valued User';\n\nconst replyMessage = `Dear ${sender},\n\nThank you for your email. Here is an update regarding your request:\n\n${summary}\n\nNext Steps: ${recommendation === 'auto_approve' ? 'Your request has been automatically approved.' : recommendation === 'escalate' ? 'Your request has been escalated for priority review.' : 'Your request is currently under review. You will hear back shortly.'}\n\nBest regards,\nAutoApprove System`;\n\nreturn [{ json: { ...$input.item.json, reply: replyMessage } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7248,
+        368
+      ],
+      "id": "43bf0223-ac81-45be-80a2-55777bd82d91",
+      "name": "Generate Reply Message"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Split Out Emails').item.json.sender }}",
+        "subject": "Re: Your Request - AutoApprove System",
+        "message": "={{$json[\"reply\"]}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        7456,
+        368
+      ],
+      "id": "c754b718-b0f8-4593-8709-08aeff995d90",
+      "name": "Send a message",
+      "webhookId": "00999e3d-20f6-487c-8c29-d18290a0a972",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "P7zbGXp5qJttR5sT",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": 10
+            }
+          ]
+        }
+      },
+      "id": "d1df95d4-4167-4e6a-9e51-895bf3d74744",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        2240,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://ojwhukwnuwsusxxunnmj.supabase.co/rest/v1/emails",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,sender,subject,body"
+            },
+            {
+              "name": "read",
+              "value": "eq.false"
+            },
+            {
+              "name": "order",
+              "value": "id.asc"
+            },
+            {
+              "name": "limit",
+              "value": "50"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "26a09b10-ae78-46bf-ac73-98ef7916f95d",
+      "name": "Fetch Unread Emails",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2448,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ff7626e7-43e6-4c74-8e9f-48ef996083e4",
+      "name": "Has Unread Emails?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2672,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "id": "456214ed-3cd2-4be1-b186-4c826d78784e",
+      "name": "Split Out Emails",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2896,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst email = $input.first().json;\nconst text  = ((email.subject || '') + ' ' + (email.body || '')).toLowerCase();\nconst roomKeywords = [\n  'room', 'conference', 'meeting room', 'boardroom', 'board room',\n  'auditorium', 'hall', 'venue', 'book a room', 'reserve a room', 'reservation',\n  'book a meeting', 'schedule a room', 'conference room a', 'conference room b',\n  'study hall', 'book the', 'reserve the'\n];\nconst lowPriorityKeywords = [\n  'fyi', 'newsletter', 'unsubscribe', 'no action',\n  'announcement', 'notification', 'reminder only'\n];\nconst assetKeywords = [\n  'laptop','computer','monitor','tablet','ipad','device',\n  'charger','cable','headset','camera','keyboard','mouse',\n  'speaker','microphone','hard drive','usb','borrow','check out',\n  'checkout','loaner','hardware','check-out'\n];\nconst supplyKeywords = [\n  'buy','purchase','order','restock','refill','supplies','supply',\n  'paper','toner','ink','pens','staples','procurement','vendor',\n  'stationery','budget','spend','expense','cost','invoice','receipt'\n];\nconst needsRoom     = roomKeywords.some(k => text.includes(k));\nconst needsAsset    = !needsRoom && assetKeywords.some(k => text.includes(k));\nconst needsSupply   = !needsRoom && !needsAsset && supplyKeywords.some(k => text.includes(k));\nconst isLowPriority = !needsRoom && !needsAsset && !needsSupply && lowPriorityKeywords.some(k => text.includes(k));\nlet route;\nif      (needsRoom)      route = 'room';\nelse if (needsAsset)     route = 'asset';\nelse if (needsSupply)    route = 'supply';\nelse if (isLowPriority)  route = 'simple';\nelse                     route = 'ai_only';\nreturn [{ json: { ...email, route } }];\n"
+      },
+      "id": "ac6aab8f-a481-4e38-96ae-382960f0d78c",
+      "name": "Email Triage",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "room",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "e17f77bc-e79a-419c-b050-3cc6b52a62fd"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "ai_only",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "41a7326f-b0f2-42e1-9926-3e0af74f9dd8"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "simple",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "c37dad0c-1e27-41c1-a2ec-758ceb002fb9"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "asset",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "258c51b9-0365-426b-80fc-06a425cb7f59"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "supply",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "261cc714-8d9e-445a-ba97-a725a25c153e"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "96e02c5a-1578-498f-86b4-035205fac0f5",
+      "name": "Route Email",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        3344,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://ojwhukwnuwsusxxunnmj.supabase.co/rest/v1/rooms",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,name,location,capacity,features,available"
+            },
+            {
+              "name": "order",
+              "value": "capacity.asc"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4ac08060-eb88-42cb-adce-190ed97eec63",
+      "name": "Fetch All Rooms",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3552,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://ojwhukwnuwsusxxunnmj.supabase.co/rest/v1/room_bookings",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "room_id,booked_by_name,start_time,end_time,status"
+            },
+            {
+              "name": "status",
+              "value": "eq.confirmed"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2443f263-2ff7-4e25-9844-52ba8dc2bc2e",
+      "name": "Fetch Existing Bookings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3552,
+        128
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "563d161a-3a8d-4915-be3c-a4a3ec5d4ee2",
+      "name": "Merge Room Branches",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        3776,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('Email Triage').item.json;\nconst rooms    = $('Fetch All Rooms').all().map(i => i.json);\nconst bookings = $('Fetch Existing Bookings').all().map(i => i.json);\nif (!email.id || !email.sender) return [];\n\nfunction parseRequestedSlot(text) {\n  const now = new Date();\n  let date = null;\n  const t = text.toLowerCase();\n  if (t.match(/\\btoday\\b/)) {\n    date = new Date(now); date.setHours(0,0,0,0);\n  } else if (t.match(/\\btomorrow\\b/)) {\n    date = new Date(now); date.setDate(date.getDate()+1); date.setHours(0,0,0,0);\n  } else {\n    const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];\n    for (let i=0;i<days.length;i++) {\n      if (t.includes(days[i])) {\n        date = new Date(now);\n        const diff = (i - date.getDay() + 7) % 7 || 7;\n        date.setDate(date.getDate() + diff);\n        date.setHours(0,0,0,0);\n        break;\n      }\n    }\n  }\n  if (!date) {\n    const months = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};\n    const mMatch = text.match(/\\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b/i);\n    if (mMatch) {\n      date = new Date(now.getFullYear(), months[mMatch[1].toLowerCase().slice(0,3)], parseInt(mMatch[2]));\n    }\n  }\n  if (!date) {\n    let m = text.match(/(\\d{1,2})[-\\/](\\d{1,2})[-\\/](\\d{4})/);\n    if (m) date = new Date(+m[3], +m[1]-1, +m[2]);\n    else { m = text.match(/(\\d{4})[-\\/](\\d{1,2})[-\\/](\\d{1,2})/); if (m) date = new Date(+m[1], +m[2]-1, +m[3]); }\n  }\n  if (!date || isNaN(date)) return null;\n  const timePattern = /(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?\\s*(?:to|-)\\s*(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?/i;\n  const tm = text.match(timePattern);\n  if (!tm) return null;\n  let sh=+tm[1], sm=+(tm[2]||0), eh=+tm[4], em=+(tm[5]||0);\n  const sap=(tm[3]||'').toLowerCase(), eap=(tm[6]||'').toLowerCase();\n  if (eap==='pm' && eh<12) eh+=12;\n  if (eap==='am' && eh===12) eh=0;\n  if (sap==='pm' && sh<12) sh+=12;\n  if (sap==='am' && sh===12) sh=0;\n  if (!sap && !eap && eh<=sh) eh+=12;\n  const start=new Date(date); start.setHours(sh,sm,0,0);\n  const end=new Date(date); end.setHours(eh,em,0,0);\n  return { start, end };\n}\n\nfunction findMentionedRoom(text, rooms) {\n  const l = text.toLowerCase().replace(/[^a-z0-9\\s]/g,' ').replace(/\\s+/g,' ');\n  function roomTokens(name) {\n    const n=name.toLowerCase().replace(/[^a-z0-9\\s]/g,' ');\n    const words=n.split(/\\s+/).filter(Boolean);\n    return { full:n, words, id:words[words.length-1] };\n  }\n  let best=null, bestScore=0;\n  for (const room of rooms) {\n    const {full,words,id}=roomTokens(room.name);\n    let score=0;\n    if (l.includes(full)) { score=100; }\n    else {\n      if (words.every(w=>l.includes(w))) score=Math.max(score,80);\n      const roomTypeWords=['room','conference','conf','board','meeting','auditorium','hall','lab','lounge','studio','classroom'];\n      const hasType=roomTypeWords.some(t=>l.includes(t));\n      const hasId=id&&l.match(new RegExp('\\\\b'+id+'\\\\b'));\n      if (hasType&&hasId) score=Math.max(score,70);\n      if (hasId&&!hasType) { const nr=l.match(new RegExp('(?:room|conference|conf|hall|board)\\\\s*'+id+'\\\\b')); if(nr) score=Math.max(score,65); }\n      const matchedWords=words.filter(w=>l.includes(w)).length;\n      if (matchedWords>0) score=Math.max(score,Math.round(50*matchedWords/words.length));\n    }\n    if (score>bestScore) { bestScore=score; best=room; }\n  }\n  return bestScore>=50 ? best : null;\n}\n\nfunction parseAttendeeCount(text) {\n  const patterns = [\n    /for\\s+(\\d+)\\s*(?:people|persons?|attendees?|guests?|colleagues?|members?|staff)/i,\n    /(\\d+)\\s*(?:people|persons?|attendees?|guests?|colleagues?|members?|staff)/i,\n    /team\\s+of\\s+(\\d+)/i,\n    /group\\s+of\\s+(\\d+)/i,\n    /(\\d+)\\s*of\\s+us/i,\n  ];\n  for (const p of patterns) { const m=text.match(p); if(m) return parseInt(m[1]); }\n  return null;\n}\n\nfunction isRoomConflicting(room, bookings, slot) {\n  return bookings.some(b => {\n    if (b.room_id !== room.id || b.status !== 'confirmed') return false;\n    const bs=new Date(b.start_time), be=new Date(b.end_time);\n    return slot.start < be && slot.end > bs;\n  });\n}\n\nfunction findBestAvailableRoom(rooms, bookings, slot, preferredRoom, attendeeCount) {\n  if (preferredRoom && preferredRoom.available !== false && !isRoomConflicting(preferredRoom, bookings, slot)) {\n    return preferredRoom;\n  }\n  const available = rooms.filter(r => {\n    if (r.available === false) return false;\n    return !isRoomConflicting(r, bookings, slot);\n  });\n  if (available.length === 0) return null;\n  let candidates = attendeeCount ? available.filter(r => (r.capacity||0) >= attendeeCount) : available;\n  if (candidates.length === 0) candidates = available;\n  candidates.sort((a,b) => (a.capacity||0) - (b.capacity||0));\n  return candidates[0];\n}\n\nconst emailText = (email.subject||'') + ' ' + (email.body||'');\nconst slot = parseRequestedSlot(emailText);\nconst mentionedRoom = findMentionedRoom(emailText, rooms);\nconst attendeeCount = parseAttendeeCount(emailText);\n\nlet conflictResult = {\n  requested_room: null, assigned_room_id: null,\n  requested_start: slot ? slot.start.toISOString() : null,\n  requested_end:   slot ? slot.end.toISOString()   : null,\n  is_available: null, conflict_reason: null,\n  conflicting_bookings: [], can_auto_book: false, attendee_count: attendeeCount\n};\n\nif (slot) {\n  const assignedRoom = findBestAvailableRoom(rooms, bookings, slot, mentionedRoom, attendeeCount);\n  if (assignedRoom) {\n    const preferredWasConflicted = mentionedRoom && mentionedRoom.id !== assignedRoom.id;\n    conflictResult.requested_room    = assignedRoom.name;\n    conflictResult.assigned_room_id  = assignedRoom.id;\n    conflictResult.is_available      = true;\n    conflictResult.can_auto_book     = true;\n    conflictResult.assigned_capacity = assignedRoom.capacity;\n    if (preferredWasConflicted) {\n      const conflicts = bookings.filter(b => {\n        if (b.room_id!==mentionedRoom.id||b.status!=='confirmed') return false;\n        const bs=new Date(b.start_time), be=new Date(b.end_time);\n        return slot.start < be && slot.end > bs;\n      });\n      conflictResult.conflict_reason = mentionedRoom.name+' was unavailable — assigned '+assignedRoom.name+' instead (capacity: '+assignedRoom.capacity+')';\n      conflictResult.conflicting_bookings = conflicts.map(c=>({booked_by:c.booked_by_name,start:c.start_time,end:c.end_time}));\n    }\n  } else {\n    conflictResult.is_available   = false;\n    conflictResult.can_auto_book  = false;\n    conflictResult.requested_room = mentionedRoom ? mentionedRoom.name : 'any room';\n    conflictResult.conflict_reason = 'No rooms are available at the requested time'+(attendeeCount?' for '+attendeeCount+' people':'')+'. All rooms are either booked or unavailable.';\n    if (mentionedRoom) {\n      const conflicts = bookings.filter(b => {\n        if (b.room_id!==mentionedRoom.id||b.status!=='confirmed') return false;\n        const bs=new Date(b.start_time), be=new Date(b.end_time);\n        return slot.start < be && slot.end > bs;\n      });\n      conflictResult.conflicting_bookings = conflicts.map(c=>({booked_by:c.booked_by_name,start:c.start_time,end:c.end_time}));\n    }\n  }\n} else if (mentionedRoom) {\n  conflictResult.requested_room    = mentionedRoom.name;\n  conflictResult.assigned_room_id  = mentionedRoom.id;\n  conflictResult.assigned_capacity = mentionedRoom.capacity;\n  conflictResult.is_available      = mentionedRoom.available !== false;\n  if (!mentionedRoom.available) conflictResult.conflict_reason = 'Room is marked as closed/unavailable';\n}\n\nconst roomSummary = rooms.map(room => {\n  const rb = bookings.filter(b => b.room_id===room.id);\n  const bl = rb.map(b=>'    - Booked by '+b.booked_by_name+': '+new Date(b.start_time).toLocaleString()+' to '+new Date(b.end_time).toLocaleString()).join('\\n');\n  return 'Room: '+room.name+'\\n  Location: '+room.location+'\\n  Capacity: '+room.capacity+' people\\n  Features: '+(room.features||[]).join(', ')+'\\n  Status: '+(room.available?'OPEN':'CLOSED')+'\\n  Bookings:\\n'+(bl||'    None');\n}).join('\\n\\n');\n\nconst formatLocal = iso => iso ? new Date(iso).toLocaleString([],{month:'numeric',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'unknown';\n\nconst conflictBlock = '\\nDETERMINISTIC AVAILABILITY CHECK (trust this, do NOT override):\\nAssigned room: '+(conflictResult.requested_room||'none')+'\\nRoom ID: '+(conflictResult.assigned_room_id||'none')+'\\nCapacity: '+(conflictResult.assigned_capacity||'unknown')+'\\nRequested: '+formatLocal(conflictResult.requested_start)+' to '+formatLocal(conflictResult.requested_end)+'\\nis_available: '+conflictResult.is_available+'\\n'+(conflictResult.conflict_reason?'Note: '+conflictResult.conflict_reason+'\\n':'')+'can_auto_book: '+conflictResult.can_auto_book+'\\n'+(attendeeCount?'Attendee count requested: '+attendeeCount+'\\n':'');\n\nconst systemPrompt = `You are an AI approval agent. A deterministic code check has already verified room availability and selected the best-fit smallest available room. You MUST use the result below exactly — do not re-evaluate availability yourself.\\n\\nROOM DATABASE:\\n${roomSummary}\\n\\nToday: ${new Date().toLocaleString()}\\n${conflictBlock}\\nRespond ONLY with valid JSON. No markdown. Fields required:\\n- title (string, max 80 chars)\\n- category: one of exactly these values: Room Booking, Club Permission, IT Access, Budget Approval, Event Approval, Other\\n- department (string)\\n- urgency: one of low, normal, high, critical\\n- risk_score (0-100)\\n- risk_level: low/medium/high\\n- ai_summary (2-3 sentences)\\n- key_points (array of strings)\\n- sentiment: positive, neutral, or negative\\n- ai_recommendation: MUST be review or escalate if is_available is false. Only auto_approve if available AND low risk.\\n- ai_confidence (0-100)\\n- action_required (boolean)\\n- room_availability: {requested_room,assigned_room_id,requested_date,is_available,conflict_reason,can_auto_book}`;\n\nconst payload = JSON.stringify({\n  model: 'llama-3.3-70b-versatile', temperature: 0.2,\n  messages: [\n    {role:'system',content:systemPrompt},\n    {role:'user',content:'Analyze this email:\\nFrom: '+email.sender+'\\nSubject: '+(email.subject||'')+'\\nBody: '+(email.body||'')}\n  ]\n});\n\nreturn [{ json: { email_id:email.id, sender:email.sender, subject:email.subject, body:email.body, rooms, conflict_check:conflictResult, grok_payload:payload } }];"
+      },
+      "id": "addc777c-b478-4266-bb8e-e4caa1a9f69d",
+      "name": "Build Groq Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4000,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer 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"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.grok_payload }}",
+        "options": {}
+      },
+      "id": "3edff525-fb67-4141-96e3-1a7cb30148e6",
+      "name": "Analyze with Groq",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4224,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const grokResponse = $input.item.json;\nconst emailData = (() => { try { return $('Build Groq Payload').item.json; } catch(e) {} return {}; })();\nconst rooms = emailData.rooms || [];\nconst raw = (grokResponse.choices?.[0]?.message?.content||'').replace(/^```json\\s*/,'').replace(/^```\\s*/,'').replace(/\\s*```$/,'').trim()||'{}';\nlet ai;\ntry { ai=JSON.parse(raw.replace(/^```json\\n?|^```\\n?|\\n?```$/g,'').trim()); }\ncatch(e){ try { ai=JSON.parse((raw.match(/\\{[\\s\\S]*\\}/)||['{}'])[0]); } catch { ai={}; } }\n\nconst DB_CATEGORIES=['Room Booking','Club Permission','IT Access','Budget Approval','Event Approval','Other'];\nconst validUrg=['low','normal','high','critical'];\nconst validRecs=['auto_approve','review','escalate'];\nconst validSent=['positive','neutral','negative'];\n\nconst assetKeywords=['laptop','computer','tablet','ipad','device','charger','cable','headset','camera','keyboard','mouse','speaker','microphone','hard drive','usb','borrow','check out','checkout','loaner','hardware','check-out'];\nconst emailText=((emailData.subject||'')+' '+(emailData.body||'')).toLowerCase();\nconst isAssetRequest=assetKeywords.some(k=>emailText.includes(k));\nconst purchaseKeywords=['buy','purchase','order','restock','refill','supplies','supply','paper','toner','ink','pens','staples','procurement','vendor','stationery'];\nconst isPurchaseRequest=!isAssetRequest&&purchaseKeywords.some(k=>emailText.includes(k));\n\nconst riskScore=Math.min(100,Math.max(0,Number(ai.risk_score)||50));\nconst deterministicCheck=emailData.conflict_check||{};\nconst roomAvail=Object.keys(deterministicCheck).length?deterministicCheck:(ai.room_availability||{});\nlet finalScore=riskScore;\nlet finalRec=validRecs.includes(ai.ai_recommendation)?ai.ai_recommendation:'review';\nif (roomAvail.is_available===false) { finalScore=Math.max(finalScore,50); finalRec='review'; }\nif (roomAvail.can_auto_book===false && finalRec==='auto_approve') finalRec='review';\n\nlet status, category, summary;\nif (isAssetRequest) {\n  status='pending'; finalRec='review'; category='Other';\n  summary='This request is for a physical asset or equipment checkout. Asset availability is not currently tracked in the system — a human reviewer must handle this manually.';\n} else if (isPurchaseRequest) {\n  status='pending'; finalRec='review'; category='Budget Approval';\n  summary=(ai.ai_summary||'')+' This is a purchase or supply request and has been routed to the budget approval queue.';\n} else {\n  status=finalRec==='auto_approve'?'auto_approved':(finalRec==='escalate'||finalScore>=70)?'escalated':'pending';\n  category=DB_CATEGORIES.includes(ai.category)?ai.category:'Other';\n  summary=ai.ai_summary||'';\n  if (roomAvail.requested_room) {\n    summary += roomAvail.is_available\n      ? ' Room '+roomAvail.requested_room+' has been assigned'+(roomAvail.assigned_capacity?' (capacity: '+roomAvail.assigned_capacity+')':'')+' at the requested time.'\n      : ' '+roomAvail.requested_room+' is NOT AVAILABLE — '+(roomAvail.conflict_reason||'conflict exists')+'.';\n  }\n}\n\nconst riskLevel=finalScore<35?'low':finalScore<70?'medium':'high';\n\nlet matchedRoomId = roomAvail.assigned_room_id || null;\nif (!matchedRoomId && roomAvail.requested_room) {\n  const m=rooms.find(r=>r.name.toLowerCase()===roomAvail.requested_room.toLowerCase()||roomAvail.requested_room.toLowerCase().includes(r.name.toLowerCase()));\n  if (m) matchedRoomId=m.id;\n}\n\nconst conf=Math.min(100,Math.max(0,Number(ai.ai_confidence)||50));\nconst urgency=validUrg.includes(ai.urgency)?ai.urgency:'normal';\nconst sentiment=validSent.includes(ai.sentiment)?ai.sentiment:'neutral';\nconst activityNotes=isAssetRequest?'Asset checkout request — not supported yet, manual review required':isPurchaseRequest?'Purchase/supply request — routed to Budget Approval':'Risk: '+finalScore+' ('+riskLevel+') — '+status+(roomAvail.requested_room?' | Room '+roomAvail.requested_room+': '+(roomAvail.is_available?'Assigned':'Conflict'):'');\n\nreturn [{ json: {\n  email_id:Number(emailData.email_id), sender:emailData.sender,\n  matched_room_id:matchedRoomId, room_availability:roomAvail,\n  status, risk_score:finalScore, risk_level:riskLevel, recommendation:finalRec,\n  is_asset_request:isAssetRequest, is_purchase_request:isPurchaseRequest, activity_notes:activityNotes,\n  metadata:JSON.stringify({risk_score:finalScore,risk_level:riskLevel,recommendation:finalRec,status,room_availability:roomAvail,is_asset_request:isAssetRequest,is_purchase_request:isPurchaseRequest}),\n  request_payload:JSON.stringify({email_id:Number(emailData.email_id),title:(ai.title||emailData.subject||'Untitled').slice(0,80),category,description:emailData.body,department:ai.department||'Unknown',urgency,requester_name:(emailData.sender||'unknown').split('@')[0].replace(/[._]/g,' '),requester_email:emailData.sender,risk_score:finalScore,risk_level:riskLevel,ai_summary:summary,ai_recommendation:finalRec,ai_confidence:conf,status}),\n  summary_payload:JSON.stringify({email_id:Number(emailData.email_id),summary,key_points:Array.isArray(ai.key_points)?ai.key_points:[],sentiment,action_required:Boolean(ai.action_required)})\n}}];"
+      },
+      "id": "4ae7fd82-856a-4131-a69b-be6a5145dff0",
+      "name": "Parse Groq Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4448,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst email = $input.item.json;\nif (!email.id || !email.sender) return [];\nconst systemPrompt = `You are an AI approval agent. Analyze this email and respond ONLY with valid JSON. No markdown. Fields required:\\n- title (string, max 80 chars)\\n- category: one of exactly these values: Room Booking, Club Permission, IT Access, Budget Approval, Event Approval, Other\\n- department (string)\\n- urgency: one of low, normal, high, critical\\n- risk_score (0-100)\\n- risk_level: low/medium/high\\n- ai_summary (2-3 sentences)\\n- key_points (array of strings)\\n- sentiment: positive, neutral, or negative\\n- ai_recommendation: auto_approve, review, or escalate\\n- ai_confidence (0-100)\\n- action_required (boolean)\\nToday: ${new Date().toLocaleString()}`;\nconst payload = JSON.stringify({\n  model: 'llama-3.3-70b-versatile',\n  temperature: 0.2,\n  messages: [\n    { role: 'system', content: systemPrompt },\n    { role: 'user', content: 'Analyze this email:\\nFrom: ' + email.sender + '\\nSubject: ' + (email.subject||'') + '\\nBody: ' + (email.body||'') }\n  ]\n});\nreturn [{ json: { email_id:email.id, sender:email.sender, subject:email.subject, body:email.body, rooms:[], conflict_check:{}, grok_payload:payload } }];\n"
+      },
+      "id": "906b1e6b-837f-4583-b10d-ae8d046c2ced",
+      "name": "Build Simple AI Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3552,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer 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"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.grok_payload }}",
+        "options": {}
+      },
+      "id": "8a3cc526-bbdd-4143-86b1-2171c884c58f",
+      "name": "Analyze with Groq (AI Only)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3776,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst grokResponse = $input.item.json;\nconst emailData = (() => { try { return $('Build Simple AI Payload').item.json; } catch(e) { return {}; } })();\nconst raw = (grokResponse.choices?.[0]?.message?.content || '').replace(/^```json\\s*/,'').replace(/^```\\s*/,'').replace(/\\s*```$/,'').trim() || '{}';\nlet ai;\ntry { ai = JSON.parse(raw.replace(/^```json\\n?|^```\\n?|\\n?```$/g,'').trim()); }\ncatch(e){ try { ai = JSON.parse((raw.match(/\\{[\\s\\S]*\\}/)||['{}'])[0]); } catch { ai = {}; } }\nconst DB_CATEGORIES = ['Room Booking','Club Permission','IT Access','Budget Approval','Event Approval','Other'];\nconst validUrg  = ['low','normal','high','critical'];\nconst validRecs = ['auto_approve','review','escalate'];\nconst validSent = ['positive','neutral','negative'];\nconst assetKeywords = ['laptop','computer','tablet','ipad','device','charger','cable','headset','camera','keyboard','mouse','speaker','microphone','hard drive','usb','borrow','check out','checkout','loaner','hardware','check-out'];\nconst emailText = ((emailData.subject||'') + ' ' + (emailData.body||'')).toLowerCase();\nconst isAssetRequest = assetKeywords.some(k => emailText.includes(k));\nconst purchaseKeywords = ['buy','purchase','order','restock','refill','supplies','supply','paper','toner','ink','pens','staples','procurement','vendor','stationery'];\nconst isPurchaseRequest = !isAssetRequest && purchaseKeywords.some(k => emailText.includes(k));\nconst riskScore = Math.min(100, Math.max(0, Number(ai.risk_score)||50));\nlet finalScore=riskScore;\nlet finalRec=validRecs.includes(ai.ai_recommendation)?ai.ai_recommendation:'review';\nlet status, category, summary;\nif (isAssetRequest) {\n  status='pending'; finalRec='review'; category='Other';\n  summary='This request is for a physical asset or equipment checkout. Asset availability is not currently tracked in the system — a human reviewer must handle this manually.';\n} else if (isPurchaseRequest) {\n  status='pending'; finalRec='review'; category='Budget Approval';\n  summary=(ai.ai_summary||'')+' This is a purchase or supply request and has been routed to the budget approval queue.';\n} else {\n  status=finalRec==='auto_approve'?'auto_approved':(finalRec==='escalate'||finalScore>=70)?'escalated':'pending';\n  category=DB_CATEGORIES.includes(ai.category)?ai.category:'Other';\n  summary=ai.ai_summary||'';\n}\nconst riskLevel=finalScore<35?'low':finalScore<70?'medium':'high';\nconst conf=Math.min(100,Math.max(0,Number(ai.ai_confidence)||50));\nconst urgency=validUrg.includes(ai.urgency)?ai.urgency:'normal';\nconst sentiment=validSent.includes(ai.sentiment)?ai.sentiment:'neutral';\nconst activityNotes=isAssetRequest?'Asset checkout request — not supported yet, manual review required':isPurchaseRequest?'Purchase/supply request — routed to Budget Approval':'Risk: '+finalScore+' ('+riskLevel+') — '+status+' | Category: '+category;\nreturn [{ json: {\n  email_id:Number(emailData.email_id), sender:emailData.sender, matched_room_id:null, room_availability:{},\n  status, risk_score:finalScore, risk_level:riskLevel, recommendation:finalRec,\n  is_asset_request:isAssetRequest, is_purchase_request:isPurchaseRequest, activity_notes:activityNotes,\n  metadata:JSON.stringify({risk_score:finalScore,risk_level:riskLevel,recommendation:finalRec,status,is_asset_request:isAssetRequest,is_purchase_request:isPurchaseRequest}),\n  request_payload:JSON.stringify({email_id:Number(emailData.email_id),title:(ai.title||emailData.subject||'Untitled').slice(0,80),category,description:emailData.body,department:ai.department||'Unknown',urgency,requester_name:(emailData.sender||'unknown').split('@')[0].replace(/[._]/g,' '),requester_email:emailData.sender,risk_score:finalScore,risk_level:riskLevel,ai_summary:summary,ai_recommendation:finalRec,ai_confidence:conf,status}),\n  summary_payload:JSON.stringify({email_id:Number(emailData.email_id),summary,key_points:Array.isArray(ai.key_points)?ai.key_points:[],sentiment,action_required:Boolean(ai.action_required)})\n}}];\n"
+      },
+      "id": "7c621945-b4d1-4e74-b767-6a1c2f37ddf6",
+      "name": "Parse Groq Response (AI Only)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4000,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $input.first().json;\nconst adminNotes = 'Low-priority email auto-triaged without AI. No action taken. Keywords indicated FYI/newsletter/announcement content.';\nreturn [{ json: {\n  email_id: Number(email.id), sender: email.sender,\n  matched_room_id: null, room_availability: {},\n  status: 'pending', risk_score: 20, risk_level: 'low', recommendation: 'review',\n  is_asset_request: false, is_purchase_request: false,\n  activity_notes: 'Auto-triaged as low priority — no AI used',\n  metadata: JSON.stringify({risk_score:20,risk_level:'low',recommendation:'review',status:'pending',room_availability:{}}),\n  request_payload: JSON.stringify({\n    email_id: Number(email.id),\n    title: (email.subject||'Untitled').slice(0,80),\n    category: 'Other',\n    description: email.body,\n    department: 'Unknown',\n    urgency: 'low',\n    requester_name: (email.sender||'unknown').split('@')[0].replace(/[._]/g,' '),\n    requester_email: email.sender,\n    risk_score: 20, risk_level: 'low',\n    ai_summary: 'Low-priority notification triaged automatically without AI. No action required.',\n    ai_recommendation: 'review',\n    ai_confidence: 60,\n    status: 'pending',\n    admin_notes: adminNotes\n  }),\n  summary_payload: JSON.stringify({\n    email_id: Number(email.id),\n    summary: 'Low-priority notification triaged automatically without AI.',\n    key_points: ['No action required','Informational only'],\n    sentiment: 'neutral',\n    action_required: false\n  })\n}}];"
+      },
+      "id": "8d03ab18-d4a2-44e7-b918-f27ea91f62d3",
+      "name": "Simple Handler (No AI)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3280,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\n\n// Try to pull request_payload + summary_payload from whichever parse node ran\nlet requestPayload = item.request_payload;\nlet summaryPayload = item.summary_payload;\nlet emailId = item.email_id;\nlet sender = item.sender;\nlet matchedRoomId = item.matched_room_id;\nlet roomAvailability = item.room_availability;\nlet status = item.status;\nlet riskScore = item.risk_score;\nlet riskLevel = item.risk_level;\nlet recommendation = item.recommendation;\nlet isAssetRequest = item.is_asset_request;\nlet isPurchaseRequest = item.is_purchase_request;\nlet activityNotes = item.activity_notes;\nlet metadata = item.metadata;\nlet assetAvailability = item.asset_availability;\nlet supplyCheck = item.supply_check;\nlet autoOrderPayload = item.auto_order_payload;\n\n// If request_payload is missing, pull from the correct upstream parse node\nif (!requestPayload) {\n  const parseNodes = [\n    'Parse Groq Response',\n    'Parse Groq Response (AI Only)',\n    'Parse Groq Response (Asset)',\n    'Parse Groq Response (Supply)',\n    'Simple Handler (No AI)'\n  ];\n  for (const nodeName of parseNodes) {\n    try {\n      const nodeData = $(nodeName).item.json;\n      if (nodeData && nodeData.request_payload) {\n        requestPayload    = nodeData.request_payload;\n        summaryPayload    = nodeData.summary_payload;\n        emailId           = nodeData.email_id;\n        sender            = nodeData.sender;\n        matchedRoomId     = nodeData.matched_room_id;\n        roomAvailability  = nodeData.room_availability;\n        status            = nodeData.status;\n        riskScore         = nodeData.risk_score;\n        riskLevel         = nodeData.risk_level;\n        recommendation    = nodeData.recommendation;\n        isAssetRequest    = nodeData.is_asset_request;\n        isPurchaseRequest = nodeData.is_purchase_request;\n        activityNotes     = nodeData.activity_notes;\n        metadata          = nodeData.metadata;\n        assetAvailability = nodeData.asset_availability;\n        supplyCheck       = nodeData.supply_check;\n        autoOrderPayload  = nodeData.auto_order_payload;\n        break;\n      }\n    } catch(e) {}\n  }\n}\n\n// Resolve final email_id\nlet finalEmailId = null;\ntry {\n  const rp = typeof requestPayload === 'string' ? JSON.parse(requestPayload) : (requestPayload || {});\n  finalEmailId = rp.email_id ? Number(rp.email_id) : null;\n} catch(e) {}\nif (!finalEmailId) finalEmailId = Number(emailId) || null;\n\nreturn [{ json: {\n  email_id: finalEmailId,\n  sender,\n  matched_room_id: matchedRoomId || null,\n  room_availability: roomAvailability || {},\n  asset_availability: assetAvailability || {},\n  supply_check: supplyCheck || {},\n  status: status || 'pending',\n  risk_score: riskScore || 20,\n  risk_level: riskLevel || 'low',\n  recommendation: recommendation || 'review',\n  is_asset_request: isAssetRequest || false,\n  is_purchase_request: isPurchaseRequest || false,\n  activity_notes: activityNotes || '',\n  metadata: metadata || '{}',\n  request_payload: requestPayload,\n  summary_payload: summaryPayload,\n  auto_order_payload: autoOrderPayload || null\n}}];"
+      },
+      "id": "db81eac8-794a-41a3-9b0a-8437ae10021e",
+      "name": "Attach Email ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4896,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ojwhukwnuwsusxxunnmj.supabase.co/rest/v1/requests",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify(typeof $json.request_payload === 'string' ? JSON.parse($json.request_payload) : $json.request_payload) }}",
+        "options": {}
+      },
+      "id": "4efa378b-8f7c-46a0-af7b-cb4cc1eabfa9",
+      "name": "Save Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5120,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const saved = $('Save Request').first().json;\nconst savedRow = Array.isArray(saved) ? saved[0] : saved;\nconst item = $('Attach Email ID').first().json;\nconst conflictCheck = item.room_availability || {};\n\nif (\n  item.status === 'auto_approved' &&\n  conflictCheck.can_auto_book === true &&\n  conflictCheck.requested_room &&\n  conflictCheck.requested_start &&\n  conflictCheck.requested_end &&\n  item.matched_room_id\n) {\n  return [{ json: { ...item, request_id: savedRow?.id || null, should_book_room: true } }];\n}\nreturn [{ json: { ...item, request_id: savedRow?.id || null, should_book_room: false } }];"
+      },
+      "id": "e1a76724-cd3f-402c-aa99-551fe4516b67",
+      "name": "Should Auto Book Room?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5344,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7a03fe4f-516d-4212-ad04-10065b216106",
+              "leftValue": "={{ $json.should_book_room }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "91e7bb1f-6128-484c-b217-19ef62b531f9",
+      "name": "Auto Book Room?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        5568,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ojwhukwnuwsusxxunnmj.supabase.co/rest/v1/room_bookings",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ room_id: $json.matched_room_id, request_id: $json.request_id, booked_by_name: $json.sender.split('@')[0].replace(/[._]/g, ' '), booked_by_email: $json.sender, start_time: $json.room_availability.requested_start, end_time: $json.room_availability.requested_end, status: 'confirmed', notes: 'Auto-booked by AI system' }) }}",
+        "options": {}
+      },
+      "id": "ba3cf97d-d2af-4889-9fe5-a49c49e4c81f",
+      "name": "Create Room Booking",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5792,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ojwhukwnuwsusxxunnmj.supabase.co/rest/v1/email_summaries",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ ...(typeof $('Attach Email ID').first().json.summary_payload === 'string' ? JSON.parse($('Attach Email ID').first().json.summary_payload) : $('Attach Email ID').first().json.summary_payload), email_id: $('Attach Email ID').first().json.email_id }) }}",
+        "options": {}
+      },
+      "id": "271ff75d-b30d-4c4a-a6f8-bd0bbdeff3c4",
+      "name": "Save Email Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6016,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst saved    = $('Save Request').first().json;\nconst savedRow = Array.isArray(saved) ? saved[0] : saved;\nconst emailId  = $('Attach Email ID').first().json.email_id;\nconst item     = $('Attach Email ID').first().json;\nreturn [{ json: {\n  request_id: savedRow?.id || null,\n  email_id:   emailId,\n  action:     item.status==='auto_approved'?'auto_approved':item.status==='escalated'?'escalated':'risk_scored',\n  actor_name: 'AI System',\n  notes:      item.activity_notes,\n  metadata:   item.metadata\n}}];\n"
+      },
+      "id": "479807c5-1dc8-4f9c-afac-f8649fffacb9",
+      "name": "Build Activity Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6240,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ojwhukwnuwsusxxunnmj.supabase.co/rest/v1/activity_log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "87bbfced-2284-4b7b-812f-5c2624590d69",
+      "name": "Save Activity Log",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6464,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst emailId = $('Attach Email ID').first().json.email_id;\nif (!emailId) throw new Error('email_id is null — check Attach Email ID node');\nreturn [{ json: { email_id: emailId } }];\n"
+      },
+      "id": "10cc465a-1793-49de-a7d6-1ca80d746beb",
+      "name": "Resolve Email ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6688,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://ojwhukwnuwsusxxunnmj.supabase.co/rest/v1/emails?id=eq.{{ $input.first().json.email_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"read\": true }",
+        "options": {}
+      },
+      "id": "295440d4-a333-4246-b20a-6c254c708c3e",
+      "name": "Mark Email as Read",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6912,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://ojwhukwnuwsusxxunnmj.supabase.co/rest/v1/assets",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,name,category,quantity,available,notes"
+            },
+            {
+              "name": "order",
+              "value": "name.asc"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6c3c4877-fefd-4313-8365-d6f0efe6757a",
+      "name": "Fetch All Assets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3552,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://ojwhukwnuwsusxxunnmj.supabase.co/rest/v1/asset_checkouts",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "asset_id,checked_out_by,checked_out_at,due_back_at,returned_at"
+            },
+            {
+              "name": "returned_at",
+              "value": "is.null"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "92a0d773-020a-4883-95e2-5d0aaca324e0",
+      "name": "Fetch Asset Checkouts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3552,
+        640
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "8807112e-9da7-4866-8995-63d4b6c2635e",
+      "name": "Merge Asset Branches",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        3776,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('Email Triage').item.json;\nconst assets   = $('Fetch All Assets').all().map(i => i.json);\nconst checkouts = $('Fetch Asset Checkouts').all().map(i => i.json);\nif (!email.id || !email.sender) return [];\nconst emailText = (email.subject||'') + ' ' + (email.body||'');\nconst textLower = emailText.toLowerCase();\nfunction findMentionedAsset(text, assets) {\n  const l = text.toLowerCase();\n  let best = null, bestScore = 0;\n  for (const asset of assets) {\n    const nameLower = asset.name.toLowerCase();\n    const catLower  = (asset.category||'').toLowerCase();\n    let score = 0;\n    if (l.includes(nameLower))   score = Math.max(score, 100);\n    if (l.includes(catLower) && catLower.length > 2) score = Math.max(score, 60);\n    if (score > bestScore) { bestScore = score; best = asset; }\n  }\n  return bestScore >= 60 ? best : null;\n}\nconst mentionedAsset = findMentionedAsset(textLower, assets);\nlet assetCheck = {\n  requested_asset: mentionedAsset ? mentionedAsset.name : null,\n  asset_category:  mentionedAsset ? mentionedAsset.category : null,\n  is_available: null, conflict_reason: null, checked_out_by: null,\n  due_back_at: null, can_auto_book: false, suggested_alternative: null\n};\nif (mentionedAsset) {\n  const activeCheckout = checkouts.find(c => c.asset_id === mentionedAsset.id);\n  if (!mentionedAsset.available) {\n    assetCheck.is_available    = false;\n    assetCheck.conflict_reason = 'Asset is marked as unavailable (damaged or decommissioned)';\n  } else if (activeCheckout) {\n    assetCheck.is_available   = false;\n    assetCheck.checked_out_by = activeCheckout.checked_out_by;\n    assetCheck.due_back_at    = activeCheckout.due_back_at;\n    assetCheck.conflict_reason = 'Currently checked out by ' + activeCheckout.checked_out_by + (activeCheckout.due_back_at ? ', due back ' + new Date(activeCheckout.due_back_at).toLocaleDateString() : '');\n    const alt = assets.find(a => a.id !== mentionedAsset.id && a.available && (a.category||'') === (mentionedAsset.category||'') && !checkouts.find(c => c.asset_id === a.id));\n    assetCheck.suggested_alternative = alt ? alt.name : null;\n  } else {\n    assetCheck.is_available  = true;\n    assetCheck.can_auto_book = true;\n    assetCheck.asset_id = mentionedAsset.id;\n  }\n}\nconst assetSummary = assets.map(a => {\n  const co = checkouts.find(c => c.asset_id === a.id);\n  return 'Asset: ' + a.name + '\\n  Category: ' + (a.category||'Unknown') + '\\n  Quantity: ' + (a.quantity||1) + '\\n  Notes: ' + (a.notes||'None') + '\\n  Status: ' + (a.available ? (co ? 'CHECKED OUT by '+co.checked_out_by : 'AVAILABLE') : 'UNAVAILABLE') + (co && co.due_back_at ? '\\n  Due back: '+new Date(co.due_back_at).toLocaleDateString() : '');\n}).join('\\n\\n');\nconst assetBlock = assetCheck.requested_asset\n  ? '\\nDETERMINISTIC ASSET AVAILABILITY CHECK (trust this, do NOT override):\\nAsset: ' + assetCheck.requested_asset + '\\nis_available: ' + assetCheck.is_available + '\\n' + (assetCheck.conflict_reason ? 'Conflict reason: ' + assetCheck.conflict_reason + '\\n' : '') + (assetCheck.suggested_alternative ? 'Suggested alternative: ' + assetCheck.suggested_alternative + '\\n' : '') + 'can_auto_book: ' + assetCheck.can_auto_book + '\\n'\n  : '\\nNo specific asset could be identified from this email.\\n';\nconst systemPrompt = `You are an AI approval agent. A deterministic check has verified asset availability. Use the result below exactly.\\n\\nASSET DATABASE:\\n${assetSummary}\\n\\nToday: ${new Date().toLocaleString()}\\n${assetBlock}\\nRespond ONLY with valid JSON. No markdown. Fields required:\\n- title (string, max 80 chars)\\n- category: one of: Room Booking, Club Permission, IT Access, Budget Approval, Event Approval, Other\\n- department (string)\\n- urgency: low, normal, high, or critical\\n- risk_score (0-100)\\n- risk_level: low/medium/high\\n- ai_summary (2-3 sentences)\\n- key_points (array of strings)\\n- sentiment: positive, neutral, or negative\\n- ai_recommendation: MUST be review or escalate if is_available is false. Only auto_approve if available AND low risk.\\n- ai_confidence (0-100)\\n- action_required (boolean)\\n- asset_availability: {requested_asset,is_available,conflict_reason,checked_out_by,due_back_at,suggested_alternative,can_auto_book}`;\nconst payload = JSON.stringify({ model: 'llama-3.3-70b-versatile', temperature: 0.2, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: 'Analyze this email:\\nFrom: ' + email.sender + '\\nSubject: ' + (email.subject||'') + '\\nBody: ' + (email.body||'') }] });\nreturn [{ json: { email_id: Number(email.id), sender: email.sender, subject: email.subject, body: email.body, assets, asset_check: assetCheck, groq_payload: payload } }];"
+      },
+      "id": "d41d1b5d-71dc-4028-aae1-7c938d395328",
+      "name": "Build Groq Payload (Asset)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4000,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer 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"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.groq_payload }}",
+        "options": {}
+      },
+      "id": "0429f364-a0a5-46fb-bb4d-0ae837e41fea",
+      "name": "Analyze with Groq (Asset)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4224,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const groqResponse = $input.item.json;\nconst emailData    = (() => { try { return $('Build Groq Payload (Asset)').item.json; } catch(e) { return {}; } })();\nconst raw = (groqResponse.choices?.[0]?.message?.content || '').replace(/^```json\\s*/,'').replace(/^```\\s*/,'').replace(/\\s*```$/,'').trim() || '{}';\nlet ai;\ntry { ai = JSON.parse(raw); } catch(e) { try { ai = JSON.parse((raw.match(/\\{[\\s\\S]*\\}/)||['{}'])[0]); } catch { ai = {}; } }\nconst DB_CATEGORIES = ['Room Booking','Club Permission','IT Access','Budget Approval','Event Approval','Other'];\nconst validUrg  = ['low','normal','high','critical'];\nconst validRecs = ['auto_approve','review','escalate'];\nconst validSent = ['positive','neutral','negative'];\nconst assetCheck = emailData.asset_check || {};\nconst riskScore  = Math.min(100, Math.max(0, Number(ai.risk_score)||50));\nlet finalScore   = riskScore;\nlet finalRec     = validRecs.includes(ai.ai_recommendation) ? ai.ai_recommendation : 'review';\nif (assetCheck.is_available === false) { finalScore = Math.max(finalScore, 50); finalRec = 'review'; }\nif (!assetCheck.can_auto_book && finalRec === 'auto_approve') finalRec = 'review';\nconst status   = finalRec==='auto_approve' ? 'auto_approved' : (finalRec==='escalate'||finalScore>=70) ? 'escalated' : 'pending';\nconst category = DB_CATEGORIES.includes(ai.category) ? ai.category : 'Other';\nlet summary = ai.ai_summary || '';\nif (assetCheck.requested_asset) {\n  summary += assetCheck.is_available ? ' Asset ' + assetCheck.requested_asset + ' is AVAILABLE for checkout.' : ' Asset ' + assetCheck.requested_asset + ' is NOT AVAILABLE — ' + (assetCheck.conflict_reason||'conflict exists') + '.' + (assetCheck.suggested_alternative ? ' Suggested alternative: ' + assetCheck.suggested_alternative + '.' : '');\n}\nlet adminNotes = 'Asset request processed by AI. ';\nadminNotes += assetCheck.requested_asset ? 'Requested: ' + assetCheck.requested_asset + '. Status: ' + (assetCheck.is_available ? 'Available' : 'Unavailable — ' + (assetCheck.conflict_reason||'')) : 'No specific asset identified in email.';\nadminNotes += ' Final decision: ' + status + '.';\nconst riskLevel = finalScore<35?'low':finalScore<70?'medium':'high';\nconst conf      = Math.min(100, Math.max(0, Number(ai.ai_confidence)||50));\nconst urgency   = validUrg.includes(ai.urgency) ? ai.urgency : 'normal';\nconst sentiment = validSent.includes(ai.sentiment) ? ai.sentiment : 'neutral';\nconst activityNotes = 'Risk: '+finalScore+' ('+riskLevel+') — '+status + (assetCheck.requested_asset ? ' | Asset '+assetCheck.requested_asset+': '+(assetCheck.is_available?'Available':'Conflict') : '');\nreturn [{ json: {\n  email_id: Number(emailData.email_id), sender: emailData.sender,\n  matched_room_id: null, room_availability: {}, asset_availability: assetCheck,\n  status, risk_score: finalScore, risk_level: riskLevel, recommendation: finalRec,\n  is_asset_request: true, is_purchase_request: false, activity_notes: activityNotes,\n  metadata: JSON.stringify({risk_score:finalScore,risk_level:riskLevel,recommendation:finalRec,status,asset_availability:assetCheck}),\n  request_payload: JSON.stringify({ email_id: Number(emailData.email_id), title: (ai.title||emailData.subject||'Asset Request').slice(0,80), category, description: emailData.body, department: ai.department||'Unknown', urgency, requester_name: (emailData.sender||'unknown').split('@')[0].replace(/[._]/g,' '), requester_email: emailData.sender, risk_score: finalScore, risk_level: riskLevel, ai_summary: summary, ai_recommendation: finalRec, ai_confidence: conf, status, admin_notes: adminNotes }),\n  summary_payload: JSON.stringify({ email_id: Number(emailData.email_id), summary, key_points: Array.isArray(ai.key_points) ? ai.key_points : [], sentiment, action_required: Boolean(ai.action_required) })\n}}];"
+      },
+      "id": "7f1d0778-0874-4547-899c-a918b861ee44",
+      "name": "Parse Groq Response (Asset)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4448,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://ojwhukwnuwsusxxunnmj.supabase.co/rest/v1/supply_catalog",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,name,category,unit_price,approved,max_auto_approve_qty"
+            },
+            {
+              "name": "order",
+              "value": "name.asc"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "04a1ad8a-04f3-4249-a8f0-2b93342245b1",
+      "name": "Fetch Supply Catalog",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3552,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://ojwhukwnuwsusxxunnmj.supabase.co/rest/v1/department_budgets",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,department,total_budget,spent,auto_approve_limit,fiscal_year"
+            },
+            {
+              "name": "fiscal_year",
+              "value": "eq.2026"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "06a9b439-c98c-44e6-b0ba-9adbeb4657cf",
+      "name": "Fetch Department Budgets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3552,
+        928
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://ojwhukwnuwsusxxunnmj.supabase.co/rest/v1/supply_orders",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "requester_email,department,total_cost,status,created_at"
+            },
+            {
+              "name": "status",
+              "value": "in.(approved,auto_approved,pending)"
+            },
+            {
+              "name": "order",
+              "value": "created_at.desc"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "77f356b4-b28f-4168-8426-9481cdb3952d",
+      "name": "Fetch Recent Spend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3552,
+        1072
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "f058b7bd-9daf-4524-baac-0002c0256f27",
+      "name": "Merge Supply Branches",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        3776,
+        928
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "35805fe3-a6a8-4b41-8650-6f2aee6ca51e",
+      "name": "Merge Supply Branches 2",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        3776,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst email    = $('Email Triage').item.json;\nconst catalog  = $('Fetch Supply Catalog').all().map(i => i.json);\nconst budgets  = $('Fetch Department Budgets').all().map(i => i.json);\nconst orders   = $('Fetch Recent Spend').all().map(i => i.json);\nif (!email.id || !email.sender) return [];\nconst emailText = (email.subject||'') + ' ' + (email.body||'');\nfunction parseAmount(text) {\n  const m = text.match(/\\$\\s*([\\d,]+(?:\\.\\d{1,2})?)/);\n  if (m) return parseFloat(m[1].replace(/,/g,''));\n  const w = text.match(/(\\d+(?:\\.\\d{1,2})?)\\s*(?:dollars?|usd)/i);\n  if (w) return parseFloat(w[1]);\n  return null;\n}\nfunction parseQty(text) {\n  const m = text.match(/(\\d+)\\s*(?:units?|packs?|boxes?|reams?|pieces?|pcs?|x\\s*\\d+)?/i);\n  return m ? parseInt(m[1]) : 1;\n}\nfunction findCatalogItem(text, catalog) {\n  const l = text.toLowerCase();\n  let best = null, bestScore = 0;\n  for (const item of catalog) {\n    const nameLower = item.name.toLowerCase();\n    const catLower  = (item.category||'').toLowerCase();\n    let score = 0;\n    if (l.includes(nameLower)) score = Math.max(score, 100);\n    else if (nameLower.split(' ').every(w => l.includes(w))) score = Math.max(score, 80);\n    else if (l.includes(catLower) && catLower.length > 2) score = Math.max(score, 50);\n    if (score > bestScore) { bestScore = score; best = item; }\n  }\n  return bestScore >= 50 ? best : null;\n}\nfunction guessDepartment(email, budgets) {\n  const text = (email.subject||'') + ' ' + (email.body||'');\n  for (const b of budgets) { if (text.toLowerCase().includes(b.department.toLowerCase())) return b.department; }\n  return null;\n}\nconst requestedAmount = parseAmount(emailText);\nconst requestedQty    = parseQty(emailText);\nconst matchedItem     = findCatalogItem(emailText, catalog);\nconst department      = guessDepartment(email, budgets);\nconst budget          = budgets.find(b => b.department === department) || null;\nlet estimatedCost = requestedAmount;\nif (!estimatedCost && matchedItem) estimatedCost = matchedItem.unit_price * requestedQty;\nlet supplyCheck = {\n  matched_item: matchedItem ? matchedItem.name : null, item_category: matchedItem ? matchedItem.category : null,\n  unit_price: matchedItem ? matchedItem.unit_price : null, requested_qty: requestedQty, estimated_cost: estimatedCost,\n  department, budget_remaining: budget ? (budget.total_budget - budget.spent) : null,\n  auto_approve_limit: budget ? budget.auto_approve_limit : null, is_approved_item: matchedItem ? matchedItem.approved : false,\n  can_auto_approve: false, denial_reason: null, qty_limit: matchedItem ? matchedItem.max_auto_approve_qty : null\n};\nif (!matchedItem) { supplyCheck.denial_reason = 'Item not found in approved supply catalog'; }\nelse if (!matchedItem.approved) { supplyCheck.denial_reason = 'Item is not on the pre-approved supply list'; }\nelse if (!estimatedCost) { supplyCheck.denial_reason = 'Could not determine total cost from email'; }\nelse if (!budget) { supplyCheck.denial_reason = 'No budget record found for department — cannot verify funds'; }\nelse if (budget.total_budget - budget.spent < estimatedCost) { supplyCheck.denial_reason = 'Insufficient budget — remaining: $' + (budget.total_budget - budget.spent).toFixed(2) + ', requested: $' + estimatedCost.toFixed(2); }\nelse if (estimatedCost > budget.auto_approve_limit) { supplyCheck.denial_reason = 'Amount $' + estimatedCost.toFixed(2) + ' exceeds auto-approve limit of $' + budget.auto_approve_limit.toFixed(2); }\nelse if (matchedItem.max_auto_approve_qty && requestedQty > matchedItem.max_auto_approve_qty) { supplyCheck.denial_reason = 'Quantity ' + requestedQty + ' exceeds per-order limit of ' + matchedItem.max_auto_approve_qty; }\nelse { supplyCheck.can_auto_approve = true; }\nconst thirtyDaysAgo = new Date(Date.now() - 30*24*60*60*1000);\nconst recentRequesterSpend = orders.filter(o => o.requester_email === email.sender && new Date(o.created_at) > thirtyDaysAgo).reduce((sum, o) => sum + (parseFloat(o.total_cost)||0), 0);\nsupplyCheck.requester_spend_30d = recentRequesterSpend;\nif (supplyCheck.can_auto_approve && recentRequesterSpend + (estimatedCost||0) > (budget?.auto_approve_limit||0) * 2) {\n  supplyCheck.can_auto_approve = false;\n  supplyCheck.denial_reason = 'Requester spend in last 30 days ($' + recentRequesterSpend.toFixed(2) + ') plus this order would exceed double the auto-approve limit';\n}\nconst catalogSummary = catalog.map(c => c.name + ' | Category: ' + c.category + ' | Price: $' + c.unit_price + ' | Approved: ' + (c.approved?'YES':'NO') + ' | Max qty/order: ' + (c.max_auto_approve_qty||'unlimited')).join('\\n');\nconst budgetSummary = budgets.map(b => b.department + ': total $' + b.total_budget + ', spent $' + b.spent + ', remaining $' + (b.total_budget - b.spent).toFixed(2) + ', auto-approve limit $' + b.auto_approve_limit).join('\\n');\nconst supplyBlock = '\\nDETERMINISTIC SUPPLY CHECK (trust this, do NOT override):\\nItem: ' + (supplyCheck.matched_item||'Not identified') + '\\nEstimated cost: $' + (supplyCheck.estimated_cost?.toFixed(2)||'unknown') + '\\nDepartment: ' + (supplyCheck.department||'Unknown') + '\\nBudget remaining: $' + (supplyCheck.budget_remaining?.toFixed(2)||'unknown') + '\\ncan_auto_approve: ' + supplyCheck.can_auto_approve + '\\n' + (supplyCheck.denial_reason ? 'Denial reason: ' + supplyCheck.denial_reason + '\\n' : '');\nconst systemPrompt = `You are an AI approval agent for supply and purchase requests.\\n\\nSUPPLY CATALOG:\\n${catalogSummary}\\n\\nDEPARTMENT BUDGETS:\\n${budgetSummary}\\n\\nToday: ${new Date().toLocaleString()}\\n${supplyBlock}\\nRespond ONLY with valid JSON. No markdown. Fields required:\\n- title (string, max 80 chars)\\n- category: always \"Budget Approval\" for supply requests\\n- department (string)\\n- urgency: low, normal, high, or critical\\n- risk_score (0-100)\\n- risk_level: low/medium/high\\n- ai_summary (2-3 sentences)\\n- key_points (array of strings)\\n- sentiment: positive, neutral, or negative\\n- ai_recommendation: MUST be auto_approve only if can_auto_approve is true. Otherwise review or escalate.\\n- ai_confidence (0-100)\\n- action_required (boolean)\\n- supply_check: {matched_item,estimated_cost,department,budget_remaining,can_auto_approve,denial_reason}`;\nconst payload = JSON.stringify({ model: 'llama-3.3-70b-versatile', temperature: 0.2, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: 'Analyze this supply request:\\nFrom: ' + email.sender + '\\nSubject: ' + (email.subject||'') + '\\nBody: ' + (email.body||'') }] });\nreturn [{ json: { email_id: Number(email.id), sender: email.sender, subject: email.subject, body: email.body, supply_check: supplyCheck, groq_payload: payload } }];\n"
+      },
+      "id": "713e44a6-67cf-4d45-861e-469487bf2a19",
+      "name": "Build Groq Payload (Supply)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4000,
+        928
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer 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"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.groq_payload }}",
+        "options": {}
+      },
+      "id": "00982338-a55d-4b70-9cbf-a55011a8caed",
+      "name": "Analyze with Groq (Supply)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4224,
+        928
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const groqResponse = $input.item.json;\nconst emailData    = (() => { try { return $('Build Groq Payload (Supply)').item.json; } catch(e) { return {}; } })();\nconst raw = (groqResponse.choices?.[0]?.message?.content || '').replace(/^```json\\s*/,'').replace(/^```\\s*/,'').replace(/\\s*```$/,'').trim() || '{}';\nlet ai;\ntry { ai = JSON.parse(raw); } catch(e) { try { ai = JSON.parse((raw.match(/\\{[\\s\\S]*\\}/)||['{}'])[0]); } catch { ai = {}; } }\nconst validUrg  = ['low','normal','high','critical'];\nconst validRecs = ['auto_approve','review','escalate'];\nconst validSent = ['positive','neutral','negative'];\nconst supplyCheck = emailData.supply_check || {};\nconst riskScore   = Math.min(100, Math.max(0, Number(ai.risk_score)||50));\nlet finalScore    = riskScore;\nlet finalRec      = validRecs.includes(ai.ai_recommendation) ? ai.ai_recommendation : 'review';\nif (!supplyCheck.can_auto_approve && finalRec === 'auto_approve') finalRec = 'review';\nif (supplyCheck.can_auto_approve && finalScore < 35) finalRec = 'auto_approve';\nconst status = finalRec==='auto_approve' ? 'auto_approved' : (finalRec==='escalate'||finalScore>=70) ? 'escalated' : 'pending';\nlet summary = ai.ai_summary || '';\nlet adminNotes = '';\nif (supplyCheck.can_auto_approve) {\n  summary += ' Order is within budget and on the approved catalog — auto-approved.';\n  adminNotes = 'AUTO-APPROVED by AI system. Item: ' + (supplyCheck.matched_item||'unknown') + ' | Qty: ' + (supplyCheck.requested_qty||1) + ' | Total cost: $' + (supplyCheck.estimated_cost?.toFixed(2)||'?') + ' | Dept: ' + (supplyCheck.department||'Unknown') + ' | Budget remaining after approval: $' + ((supplyCheck.budget_remaining||0) - (supplyCheck.estimated_cost||0)).toFixed(2) + '. Supply order created and department budget updated automatically.';\n} else {\n  summary += ' Order requires review: ' + (supplyCheck.denial_reason||'see details') + '.';\n  adminNotes = 'Requires human review. Item: ' + (supplyCheck.matched_item||'unknown') + ' | Estimated cost: $' + (supplyCheck.estimated_cost?.toFixed(2)||'?') + ' | Reason: ' + (supplyCheck.denial_reason||'Manual review needed') + '.';\n}\nconst riskLevel     = finalScore<35?'low':finalScore<70?'medium':'high';\nconst conf          = Math.min(100, Math.max(0, Number(ai.ai_confidence)||50));\nconst urgency       = validUrg.includes(ai.urgency) ? ai.urgency : 'normal';\nconst sentiment     = validSent.includes(ai.sentiment) ? ai.sentiment : 'neutral';\nconst dept          = supplyCheck.department || ai.department || 'Unknown';\nconst activityNotes = 'Supply request — ' + status + ' | Item: ' + (supplyCheck.matched_item||'unknown') + ' | Cost: $' + (supplyCheck.estimated_cost?.toFixed(2)||'?') + ' | ' + (supplyCheck.can_auto_approve ? 'Within limits' : supplyCheck.denial_reason||'Review needed');\nreturn [{ json: {\n  email_id: Number(emailData.email_id), sender: emailData.sender,\n  matched_room_id: null, room_availability: {}, asset_availability: {}, supply_check: supplyCheck,\n  status, risk_score: finalScore, risk_level: riskLevel, recommendation: finalRec,\n  is_asset_request: false, is_purchase_request: true, activity_notes: activityNotes,\n  metadata: JSON.stringify({risk_score:finalScore,risk_level:riskLevel,recommendation:finalRec,status,supply_check:supplyCheck}),\n  request_payload: JSON.stringify({ email_id: Number(emailData.email_id), title: (ai.title||emailData.subject||'Supply Request').slice(0,80), category: 'Budget Approval', description: emailData.body, department: dept, urgency, requester_name: (emailData.sender||'unknown').split('@')[0].replace(/[._]/g,' '), requester_email: emailData.sender, risk_score: finalScore, risk_level: riskLevel, ai_summary: summary, ai_recommendation: finalRec, ai_confidence: conf, status, admin_notes: adminNotes }),\n  summary_payload: JSON.stringify({ email_id: Number(emailData.email_id), summary, key_points: Array.isArray(ai.key_points) ? ai.key_points : [], sentiment, action_required: Boolean(ai.action_required) }),\n  auto_order_payload: supplyCheck.can_auto_approve ? JSON.stringify({ email_id: Number(emailData.email_id), requester_email: emailData.sender, requester_name: (emailData.sender||'unknown').split('@')[0].replace(/[._]/g,' '), department: dept, item_id: supplyCheck.matched_item, item_name: supplyCheck.matched_item, quantity: supplyCheck.requested_qty, unit_price: supplyCheck.unit_price, total_cost: supplyCheck.estimated_cost, status: 'auto_approved', notes: 'Auto-approved by AI system' }) : null\n}}];"
+      },
+      "id": "8a9bdd66-8485-454f-85ba-31cc44bd91f9",
+      "name": "Parse Groq Response (Supply)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4448,
+        928
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst item = $input.item.json;\nif (item.status === 'auto_approved' && item.auto_order_payload) {\n  return [{ json: { ...item, should_create_order: true } }];\n}\nreturn [{ json: { ...item, should_create_order: false } }];\n"
+      },
+      "id": "b2e987fc-56ec-4801-b54c-ca78014ea7ff",
+      "name": "Should Auto Order?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4672,
+        928
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.should_create_order }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8115075a-8767-4c72-91b7-54deb6b11b9f",
+      "name": "Auto Order?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4896,
+        928
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ojwhukwnuwsusxxunnmj.supabase.co/rest/v1/supply_orders",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.auto_order_payload }}",
+        "options": {}
+      },
+      "id": "6e6d992a-5e38-4956-b114-cea927da8ae5",
+      "name": "Create Supply Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5120,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst order     = JSON.parse($('Parse Groq Response (Supply)').item.json.auto_order_payload || '{}');\nconst budgets   = $('Fetch Department Budgets').all().map(i => i.json);\nconst deptBudget = budgets.find(b => b.department === order.department);\nif (!deptBudget) return [{ json: { skipped: true, reason: 'No budget row found for ' + order.department } }];\nreturn [{ json: {\n  budget_id:  deptBudget.id,\n  new_spent:  parseFloat((deptBudget.spent + order.total_cost).toFixed(2)),\n  department: order.department,\n  total_cost: order.total_cost\n}}];\n"
+      },
+      "id": "6cf4873d-af1c-459d-8d50-07ec074fd552",
+      "name": "Build Budget Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5344,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://ojwhukwnuwsusxxunnmj.supabase.co/rest/v1/department_budgets?id=eq.{{ $json.budget_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ spent: $json.new_spent }) }}",
+        "options": {}
+      },
+      "id": "6cec82e1-252a-4017-9821-9d28968c9496",
+      "name": "Update Budget Spent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5568,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $input.item.json }];"
+      },
+      "id": "048b746f-2b5e-431e-9cdb-79ffb8d1fd11",
+      "name": "Supply Pass Through",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5120,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\nconst assetCheck = item.asset_availability || {};\n\nif (\n  item.status === 'auto_approved' &&\n  assetCheck.can_auto_book === true &&\n  assetCheck.asset_id &&\n  assetCheck.requested_asset\n) {\n  return [{ json: { ...item, should_checkout_asset: true } }];\n}\nreturn [{ json: { ...item, should_checkout_asset: false } }];"
+      },
+      "id": "0202f779-9abd-4bd7-840b-3c67ae0cb230",
+      "name": "Should Auto Checkout Asset?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4672,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+              "leftValue": "={{ $json.should_checkout_asset }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a9647986-96b8-44b2-8e95-1d68fd51c3a6",
+      "name": "Auto Checkout Asset?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        4896,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ojwhukwnuwsusxxunnmj.supabase.co/rest/v1/asset_checkouts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ (() => {\n  const now = new Date();\n  const dueBack = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);\n  return JSON.stringify({\n    asset_id: $json.asset_availability.asset_id,\n    checked_out_by: $json.sender.split('@')[0].replace(/[._]/g, ' '),\n    checked_out_by_email: $json.sender,\n    checked_out_at: now.toISOString(),\n    due_back_at: dueBack.toISOString(),\n    notes: 'Auto-checked out by AI system. Default 7-day return window applied.'\n  });\n})() }}",
+        "options": {}
+      },
+      "id": "39b4a128-af81-4c2f-aad7-d0387b249159",
+      "name": "Create Asset Checkout",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5120,
+        448
+      ]
+    }
+  ],
+  "connections": {
+    "Generate Reply Message": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Split Out Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Unread Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Unread Emails": {
+      "main": [
+        [
+          {
+            "node": "Has Unread Emails?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Unread Emails?": {
+      "main": [
+        [
+          {
+            "node": "Split Out Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out Emails": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Email Triage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Triage": {
+      "main": [
+        [
+          {
+            "node": "Route Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Email": {
+      "main": [
+        [
+          {
+            "node": "Fetch All Rooms",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Existing Bookings",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Simple AI Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Simple Handler (No AI)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch All Assets",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Asset Checkouts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Supply Catalog",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Department Budgets",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Recent Spend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch All Rooms": {
+      "main": [
+        [
+          {
+            "node": "Merge Room Branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Existing Bookings": {
+      "main": [
+        [
+          {
+            "node": "Merge Room Branches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Room Branches": {
+      "main": [
+        [
+          {
+            "node": "Build Groq Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Groq Payload": {
+      "main": [
+        [
+          {
+            "node": "Analyze with Groq",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze with Groq": {
+      "main": [
+        [
+          {
+            "node": "Parse Groq Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Groq Response": {
+      "main": [
+        [
+          {
+            "node": "Attach Email ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Simple AI Payload": {
+      "main": [
+        [
+          {
+            "node": "Analyze with Groq (AI Only)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze with Groq (AI Only)": {
+      "main": [
+        [
+          {
+            "node": "Parse Groq Response (AI Only)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Groq Response (AI Only)": {
+      "main": [
+        [
+          {
+            "node": "Attach Email ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Handler (No AI)": {
+      "main": [
+        [
+          {
+            "node": "Attach Email ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Email ID": {
+      "main": [
+        [
+          {
+            "node": "Save Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Request": {
+      "main": [
+        [
+          {
+            "node": "Should Auto Book Room?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Auto Book Room?": {
+      "main": [
+        [
+          {
+            "node": "Auto Book Room?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auto Book Room?": {
+      "main": [
+        [
+          {
+            "node": "Create Room Booking",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Email Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Room Booking": {
+      "main": [
+        [
+          {
+            "node": "Save Email Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Email Summary": {
+      "main": [
+        [
+          {
+            "node": "Build Activity Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Activity Log": {
+      "main": [
+        [
+          {
+            "node": "Save Activity Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Activity Log": {
+      "main": [
+        [
+          {
+            "node": "Resolve Email ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Email ID": {
+      "main": [
+        [
+          {
+            "node": "Mark Email as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Email as Read": {
+      "main": [
+        [
+          {
+            "node": "Generate Reply Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch All Assets": {
+      "main": [
+        [
+          {
+            "node": "Merge Asset Branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Asset Checkouts": {
+      "main": [
+        [
+          {
+            "node": "Merge Asset Branches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Asset Branches": {
+      "main": [
+        [
+          {
+            "node": "Build Groq Payload (Asset)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Groq Payload (Asset)": {
+      "main": [
+        [
+          {
+            "node": "Analyze with Groq (Asset)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze with Groq (Asset)": {
+      "main": [
+        [
+          {
+            "node": "Parse Groq Response (Asset)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Groq Response (Asset)": {
+      "main": [
+        [
+          {
+            "node": "Should Auto Checkout Asset?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Supply Catalog": {
+      "main": [
+        [
+          {
+            "node": "Merge Supply Branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Department Budgets": {
+      "main": [
+        [
+          {
+            "node": "Merge Supply Branches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Fetch Recent Spend": {
+      "main": [
+        [
+          {
+            "node": "Merge Supply Branches 2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Supply Branches": {
+      "main": [
+        [
+          {
+            "node": "Merge Supply Branches 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Supply Branches 2": {
+      "main": [
+        [
+          {
+            "node": "Build Groq Payload (Supply)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Groq Payload (Supply)": {
+      "main": [
+        [
+          {
+            "node": "Analyze with Groq (Supply)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze with Groq (Supply)": {
+      "main": [
+        [
+          {
+            "node": "Parse Groq Response (Supply)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Groq Response (Supply)": {
+      "main": [
+        [
+          {
+            "node": "Should Auto Order?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Auto Order?": {
+      "main": [
+        [
+          {
+            "node": "Auto Order?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auto Order?": {
+      "main": [
+        [
+          {
+            "node": "Create Supply Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supply Pass Through",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Supply Order": {
+      "main": [
+        [
+          {
+            "node": "Build Budget Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Budget Update": {
+      "main": [
+        [
+          {
+            "node": "Update Budget Spent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Budget Spent": {
+      "main": [
+        [
+          {
+            "node": "Attach Email ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supply Pass Through": {
+      "main": [
+        [
+          {
+            "node": "Attach Email ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Auto Checkout Asset?": {
+      "main": [
+        [
+          {
+            "node": "Auto Checkout Asset?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auto Checkout Asset?": {
+      "main": [
+        [
+          {
+            "node": "Create Asset Checkout",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Attach Email ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Asset Checkout": {
+      "main": [
+        [
+          {
+            "node": "Attach Email ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "40f79c36693dea0497bd3aa47425af2064870ff6f5f5321a71576e7fc08faa44"
+  }
+}
