@@ -1,0 +1,174 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "includeSpamTrash": false,
+          "includeDrafts": false,
+          "readStatus": "unread"
+        },
+        "options": {}
+      },
+      "id": "2efd08d5-1127-4973-bf64-4f2c18e5d1d3",
+      "name": "P1: Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        512,
+        -304
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "P7zbGXp5qJttR5sT",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nfunction extractEmail(from) {\n  if (!from) return '';\n  if (typeof from === 'object' && Array.isArray(from.value)) {\n    return from.value[0]?.address || '';\n  }\n  if (Array.isArray(from)) {\n    return from[0]?.address || '';\n  }\n  if (typeof from === 'string') {\n    const match = from.match(/<([^>]+)>/);\n    return match ? match[1].trim() : from.trim();\n  }\n  return '';\n}\n\nconst email = $input.first().json;\nconst sender  = extractEmail(email.from);\nconst subject = email.subject || '';\nconst body    = email.text || email.html || '';\nconst messageId = email.id || email.messageId || '';\nconst text = (subject + ' ' + body).toLowerCase();\n\nconst roomKeywords  = ['room','conference','meeting room','boardroom','board room','auditorium','hall','venue','book a room','reserve a room','reservation'];\nconst assetKeywords = ['laptop','computer','monitor','keyboard','mouse','tablet','ipad','phone','camera','projector','equipment','device','charger','cable','headset','borrow','rent','check out','asset','locker','desk','hot desk','parking','vehicle','car','van'];\nconst aiKeywords    = ['urgent','critical','asap','immediately','emergency','approval','approve','budget','permission','access','request','authorize','grant','deny','escalate','important','deadline','compliance','policy','exception','override','it support','software'];\n\nconst needsRoom  = roomKeywords.some(k => text.includes(k));\nconst needsAsset = assetKeywords.some(k => text.includes(k));\nconst needsAI    = aiKeywords.some(k => text.includes(k));\n\nlet route;\nif (needsRoom)       route = 'room';\nelse if (needsAsset) route = 'asset';\nelse if (needsAI)    route = 'ai_only';\nelse                 route = 'simple';\n\nreturn [{ json: { sender, subject, body, message_id: messageId, route, gmail_id: messageId } }];\n"
+      },
+      "id": "a2352919-7c09-4c6c-991a-87071beec42f",
+      "name": "P1: Normalize & Triage",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        736,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst item = $input.first().json;\nreturn [{ json: {\n  sender: item.sender,\n  subject: item.subject,\n  body: item.body,\n  message_id: item.message_id,\n  route: item.route,\n  read: false,\n  processing_status: 'pending'\n} }];\n"
+      },
+      "id": "f1979ba1-e4f3-448b-8c6f-6d8049cc035f",
+      "name": "P1: Build Save Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ojwhukwnuwsusxxunnmj.supabase.co/rest/v1/emails",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qd2h1a3dudXdzdXN4eHVubm1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNDkyMjQsImV4cCI6MjA4NzcyNTIyNH0.KUmJyLcdDaeNyksQQOkwqOI4sn3JjoOtvUlGGKpdO7k"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation,resolution=ignore-duplicates"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "9975d19f-e553-4f66-92b2-082b70e79cc8",
+      "name": "P1: Save to emails table",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1184,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $('P1: Normalize & Triage').first().json.gmail_id }}"
+      },
+      "id": "9a65643d-3446-4e6a-9c95-7ae34e573935",
+      "name": "P1: Mark Gmail as Read",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1408,
+        -304
+      ],
+      "webhookId": "76160b96-f8e5-4073-9897-942c435329b0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "f6wJXzWeFljPwdol",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "P1: Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "P1: Normalize & Triage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "P1: Normalize & Triage": {
+      "main": [
+        [
+          {
+            "node": "P1: Build Save Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "P1: Build Save Payload": {
+      "main": [
+        [
+          {
+            "node": "P1: Save to emails table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "P1: Save to emails table": {
+      "main": [
+        [
+          {
+            "node": "P1: Mark Gmail as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "40f79c36693dea0497bd3aa47425af2064870ff6f5f5321a71576e7fc08faa44"
+  }
+}
